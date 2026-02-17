@@ -1,0 +1,4 @@
+project_id = "ucddwlbjjsvbnaemnbcq"
+
+[functions.hr-interview]
+verify_jwt = false
