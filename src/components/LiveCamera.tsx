@@ -1,12 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { Video, VideoOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const LiveCamera = () => {
+export interface LiveCameraHandle {
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  isActive: boolean;
+}
+
+export const LiveCamera = forwardRef<LiveCameraHandle>((_, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isActive, setIsActive] = useState(true);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    videoRef,
+    isActive,
+  }));
 
   const startCamera = async () => {
     try {
@@ -45,7 +55,7 @@ export const LiveCamera = () => {
   }, []);
 
   return (
-    <div className="gradient-card rounded-xl border border-border shadow-card overflow-hidden mb-6">
+    <div className="gradient-card rounded-xl border border-border shadow-card overflow-hidden">
       <div className="relative aspect-video bg-background/50">
         {isActive && !error ? (
           <video
@@ -65,7 +75,6 @@ export const LiveCamera = () => {
             </div>
           </div>
         )}
-        {/* Recording indicator */}
         {isActive && !error && (
           <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-background/70 backdrop-blur-sm px-2.5 py-1 rounded-full">
             <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
@@ -73,18 +82,20 @@ export const LiveCamera = () => {
           </div>
         )}
       </div>
-      <div className="p-3 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">Practice like a real interview</span>
+      <div className="p-2 flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground">Practice like a real interview</span>
         <Button
           variant="ghost"
           size="sm"
           onClick={toggleCamera}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground h-7 px-2"
         >
-          {isActive ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-          <span className="ml-1.5 text-xs">{isActive ? "On" : "Off"}</span>
+          {isActive ? <Video className="h-3.5 w-3.5" /> : <VideoOff className="h-3.5 w-3.5" />}
+          <span className="ml-1 text-[10px]">{isActive ? "On" : "Off"}</span>
         </Button>
       </div>
     </div>
   );
-};
+});
+
+LiveCamera.displayName = "LiveCamera";
