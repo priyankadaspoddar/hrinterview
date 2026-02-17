@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { QuestionCard } from "@/components/QuestionCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { FinalResults } from "@/components/FinalResults";
+import { LiveCamera } from "@/components/LiveCamera";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, Sparkles, Target, ArrowRight, Loader2 } from "lucide-react";
+import { Brain, Sparkles, Target, ArrowRight, Loader2, Video } from "lucide-react";
 
 type Phase = "landing" | "loading" | "question" | "feedback" | "results";
 
@@ -118,7 +119,7 @@ const Index = () => {
               {[
                 { icon: Brain, title: "AI Analysis", desc: "Gemini 2.5 Pro evaluates your answers in real-time" },
                 { icon: Target, title: "STAR Method", desc: "Structured feedback on Situation, Task, Action, Result" },
-                { icon: Sparkles, title: "5 Questions", desc: "Randomized behavioral questions from diverse categories" },
+                { icon: Video, title: "Live Camera", desc: "Practice with your camera on like a real video interview" },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className="gradient-card rounded-xl border border-border p-5 shadow-card text-center">
                   <Icon className="h-8 w-8 text-primary mx-auto mb-3" />
@@ -149,6 +150,8 @@ const Index = () => {
         )}
 
         {/* Question */}
+        {(phase === "question" || phase === "feedback") && <LiveCamera />}
+
         {phase === "question" && questions[currentQ] && (
           <QuestionCard
             question={questions[currentQ]}
