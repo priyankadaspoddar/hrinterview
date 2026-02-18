@@ -1,6 +1,6 @@
 import { TrendingUp } from "lucide-react";
 
-const categories = [
+const defaultCategories = [
   "Adaptability",
   "Conflict Resolution",
   "Career Goals",
@@ -11,9 +11,11 @@ const categories = [
 interface ProgressTrackerProps {
   currentQ: number;
   totalQuestions: number;
+  categories?: string[];
 }
 
-export const ProgressTracker = ({ currentQ, totalQuestions }: ProgressTrackerProps) => {
+export const ProgressTracker = ({ currentQ, totalQuestions, categories: catsProp }: ProgressTrackerProps) => {
+  const categories = catsProp?.length ? catsProp.slice(0, totalQuestions) : defaultCategories.slice(0, totalQuestions);
   return (
     <div className="gradient-card rounded-xl border border-border p-4 shadow-card">
       <h3 className="font-display font-semibold text-sm text-foreground flex items-center gap-2 mb-3">

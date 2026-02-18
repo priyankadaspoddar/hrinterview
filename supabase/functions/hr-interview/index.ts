@@ -5,23 +5,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const HR_QUESTIONS = [
-  "Tell me about a time when you had to deal with a difficult coworker or team member. How did you handle the situation?",
-  "Describe a situation where you had to meet a tight deadline. What steps did you take to ensure you met it?",
-  "Give me an example of a time when you showed leadership, even if you weren't in a formal leadership role.",
-  "Tell me about a time when you failed at something. What did you learn from the experience?",
-  "Describe a situation where you had to adapt to a significant change at work. How did you manage it?",
-  "Tell me about a time you had to persuade someone to see things your way. What approach did you use?",
-  "Give an example of a goal you set and how you achieved it.",
-  "Describe a time when you went above and beyond what was expected of you.",
-  "Tell me about a conflict you had with your manager. How did you resolve it?",
-  "Describe a situation where you had to make a decision with incomplete information.",
+const QUESTION_CATEGORIES = [
+  "Adaptability & Change Management",
+  "Conflict Resolution & Interpersonal Skills",
+  "Leadership & Initiative",
+  "Problem Solving & Critical Thinking",
+  "Teamwork & Collaboration",
+  "Communication & Persuasion",
+  "Time Management & Prioritization",
+  "Resilience & Handling Failure",
+  "Goal Setting & Achievement",
+  "Customer Focus & Service",
+  "Innovation & Creativity",
+  "Ethics & Integrity",
 ];
-
-function getRandomQuestions(count: number): string[] {
-  const shuffled = [...HR_QUESTIONS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,30 +26,79 @@ serve(async (req) => {
   }
 
   try {
-    const { action, answer, question, questionNumber } = await req.json();
+    const body = await req.json();
+    const { action } = body;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    if (action === "get_questions") {
-      const questions = getRandomQuestions(5);
-      return new Response(JSON.stringify({ questions }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (action === "evaluate") {
+    const callAI = async (model: string, messages: any[], extraOpts: any = {}) => {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
-          messages: [
-            {
-              role: "system",
-              content: `You are an expert HR interview coach. Evaluate the candidate's answer using the STAR method (Situation, Task, Action, Result). 
+        body: JSON.stringify({ model, messages, ...extraOpts }),
+      });
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw { status: 429, message: "Rate limit exceeded. Please wait a moment and try again." };
+        }
+        if (response.status === 402) {
+          throw { status: 402, message: "Usage limit reached. Please add credits." };
+        }
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw { status: 500, message: "AI gateway error" };
+      }
+      return response.json();
+    };
+
+    // ─── Generate 5 diverse questions via Gemini 2.5 Pro ───
+    if (action === "get_questions") {
+      const shuffled = [...QUESTION_CATEGORIES].sort(() => Math.random() - 0.5);
+      const selectedCategories = shuffled.slice(0, 5);
+
+      const data = await callAI("google/gemini-2.5-pro", [
+        {
+          role: "system",
+          content: `You are an expert HR interviewer. Generate exactly 5 behavioral interview questions, one for each of these categories: ${selectedCategories.join(", ")}.
+
+Each question must:
+- Be a behavioral "Tell me about a time..." style question
+- Target the STAR method
+- Be unique, realistic, and challenging
+
+Return ONLY a JSON object:
+{
+  "questions": [
+    { "question": "...", "category": "..." }
+  ]
+}`,
+        },
+        { role: "user", content: "Generate the 5 interview questions now." },
+      ]);
+
+      const content = data.choices?.[0]?.message?.content || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Failed to parse AI questions");
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      return new Response(JSON.stringify({
+        questions: parsed.questions.map((q: any) => q.question),
+        categories: parsed.questions.map((q: any) => q.category),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Evaluate answer with STAR analysis (Gemini 3 Flash Preview) ───
+    if (action === "evaluate") {
+      const { answer, question, questionNumber } = body;
+      const data = await callAI("google/gemini-3-flash-preview", [
+        {
+          role: "system",
+          content: `You are an expert HR interview coach. Evaluate the candidate's answer using the STAR method (Situation, Task, Action, Result). 
 
 Provide your evaluation in the following JSON format:
 {
@@ -69,44 +115,113 @@ Provide your evaluation in the following JSON format:
 }
 
 Be encouraging but honest. Focus on practical, actionable feedback.`,
-            },
-            {
-              role: "user",
-              content: `Question ${questionNumber}/5: "${question}"\n\nCandidate's Answer: "${answer}"`,
-            },
-          ],
-        }),
-      });
+        },
+        {
+          role: "user",
+          content: `Question ${questionNumber}/5: "${question}"\n\nCandidate's Answer: "${answer}"`,
+        },
+      ]);
 
-      if (!response.ok) {
-        if (response.status === 429) {
-          return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait a moment and try again." }), {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        if (response.status === 402) {
-          return new Response(JSON.stringify({ error: "Usage limit reached. Please add credits." }), {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        const t = await response.text();
-        console.error("AI gateway error:", response.status, t);
-        throw new Error("AI gateway error");
-      }
-
-      const data = await response.json();
       const content = data.choices?.[0]?.message?.content || "";
-      
-      // Parse JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("Failed to parse AI response");
-      }
-      
+      if (!jsonMatch) throw new Error("Failed to parse AI response");
       const evaluation = JSON.parse(jsonMatch[0]);
+
       return new Response(JSON.stringify({ evaluation }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Vision-based emotion analysis (Gemini 2.5 Pro) ───
+    if (action === "analyze_emotion") {
+      const { frameBase64 } = body;
+      if (!frameBase64) throw new Error("No frame provided");
+
+      const data = await callAI("google/gemini-2.5-pro", [
+        {
+          role: "system",
+          content: `You are an expert in facial expression and body language analysis for interview coaching. Analyze the provided image of a person during a video interview.
+
+Return ONLY a JSON object with scores from 0-100:
+{
+  "eyeContact": <0-100>,
+  "confidence": <0-100>,
+  "engagement": <0-100>,
+  "stress": <0-100>,
+  "positivity": <0-100>,
+  "professionalPresence": <0-100>,
+  "dominantEmotion": "<happy|neutral|anxious|confident|focused|distracted>",
+  "microExpressions": "<brief observation>"
+}`,
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Analyze this interview candidate's expression and body language:" },
+            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${frameBase64}` } },
+          ],
+        },
+      ]);
+
+      const content = data.choices?.[0]?.message?.content || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Failed to parse emotion data");
+      const emotionData = JSON.parse(jsonMatch[0]);
+
+      return new Response(JSON.stringify({ emotionData }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Generate PDF report (Gemini 3 Flash Preview) ───
+    if (action === "generate_report") {
+      const { evaluations, questions, categories, emotionTimeline, overallEmotionAvg } = body;
+
+      const avgScore = evaluations.reduce((s: number, e: any) => s + e.overallScore, 0) / evaluations.length;
+
+      const data = await callAI("google/gemini-3-flash-preview", [
+        {
+          role: "system",
+          content: `You are an expert HR interview report writer. Generate a comprehensive, professional interview performance report.
+
+Return a JSON object:
+{
+  "executiveSummary": "<2-3 sentence overview>",
+  "overallAssessment": "<detailed paragraph about candidate's performance>",
+  "communicationAnalysis": "<paragraph analyzing communication style, clarity, confidence>",
+  "emotionalIntelligence": "<paragraph based on emotion tracking data>",
+  "starMethodProficiency": "<paragraph evaluating STAR method usage>",
+  "topStrengths": ["<strength1>", "<strength2>", "<strength3>"],
+  "developmentAreas": ["<area1>", "<area2>", "<area3>"],
+  "actionableRecommendations": ["<rec1>", "<rec2>", "<rec3>", "<rec4>"],
+  "readinessLevel": "<Not Ready|Developing|Interview Ready|Highly Prepared>",
+  "predictedPerformance": "<paragraph predicting real interview performance>"
+}`,
+        },
+        {
+          role: "user",
+          content: `Interview Data:
+Average Score: ${avgScore.toFixed(1)}/10
+
+Questions & Scores:
+${evaluations.map((e: any, i: number) => `Q${i + 1} [${categories?.[i] || "General"}]: "${questions[i]}" → Score: ${e.overallScore}/10
+  S:${e.starBreakdown.situation.score} T:${e.starBreakdown.task.score} A:${e.starBreakdown.action.score} R:${e.starBreakdown.result.score}
+  Strengths: ${e.strengths.join(", ")}
+  Improvements: ${e.improvements.join(", ")}`).join("\n\n")}
+
+Emotion Tracking Summary:
+${overallEmotionAvg ? `Eye Contact: ${overallEmotionAvg.eyeContact}%, Confidence: ${overallEmotionAvg.confidence}%, Engagement: ${overallEmotionAvg.engagement}%, Stress: ${overallEmotionAvg.stress}%, Positivity: ${overallEmotionAvg.positivity}%` : "No emotion data available"}
+
+Generate a thorough, professional HR interview report.`,
+        },
+      ]);
+
+      const content = data.choices?.[0]?.message?.content || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Failed to parse report");
+      const report = JSON.parse(jsonMatch[0]);
+
+      return new Response(JSON.stringify({ report }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -115,10 +230,12 @@ Be encouraging but honest. Focus on practical, actionable feedback.`,
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("hr-interview error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
+    const status = e?.status || 500;
+    const message = e?.message || (e instanceof Error ? e.message : "Unknown error");
+    return new Response(JSON.stringify({ error: message }), {
+      status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

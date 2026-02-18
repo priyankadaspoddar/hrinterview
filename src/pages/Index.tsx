@@ -7,6 +7,8 @@ import { LiveCamera, LiveCameraHandle } from "@/components/LiveCamera";
 import { RealTimeMetrics } from "@/components/RealTimeMetrics";
 import { StarTips } from "@/components/StarTips";
 import { ProgressTracker } from "@/components/ProgressTracker";
+import { InterviewReport } from "@/components/InterviewReport";
+import { useEmotionTracking } from "@/hooks/useEmotionTracking";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Brain, Sparkles, Target, ArrowRight, Loader2, Video, Mic } from "lucide-react";
@@ -29,6 +31,7 @@ interface Evaluation {
 const Index = () => {
   const [phase, setPhase] = useState<Phase>("landing");
   const [questions, setQuestions] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [currentEval, setCurrentEval] = useState<Evaluation | null>(null);
@@ -36,6 +39,15 @@ const Index = () => {
   const [isListening, setIsListening] = useState(false);
   const cameraRef = useRef<LiveCameraHandle>(null);
   const { toast } = useToast();
+
+  const isInterviewActive = phase === "question" || phase === "feedback";
+
+  // Emotion tracking hook
+  const videoRef = cameraRef.current?.videoRef || { current: null };
+  const cameraActive = cameraRef.current?.isActive || false;
+  const { metrics, timeline, resetTimeline } = useEmotionTracking(
+    videoRef, isInterviewActive && cameraActive, isListening
+  );
 
   const startInterview = async () => {
     setPhase("loading");
@@ -45,9 +57,11 @@ const Index = () => {
       });
       if (error) throw error;
       setQuestions(data.questions);
+      setCategories(data.categories || []);
       setCurrentQ(0);
       setEvaluations([]);
       setCurrentEval(null);
+      resetTimeline();
       setPhase("question");
     } catch {
       toast({ title: "Error", description: "Failed to load questions.", variant: "destructive" });
@@ -82,7 +96,7 @@ const Index = () => {
     }
   };
 
-  const isInterviewActive = phase === "question" || phase === "feedback";
+  const allEvaluations = currentEval ? [...evaluations, currentEval] : evaluations;
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -93,7 +107,7 @@ const Index = () => {
         <header className="text-center py-6 px-4">
           <div className="inline-flex items-center gap-2 gradient-primary text-primary-foreground text-xs font-display font-semibold px-4 py-1.5 rounded-full mb-4">
             <Sparkles className="h-3.5 w-3.5" />
-            Powered by Gemini 2.5 Pro
+            Powered by Gemini 2.5 Pro + Gemini 3 Flash
           </div>
           <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-2">
             HR Interview <span className="text-gradient">Practice</span>
@@ -108,9 +122,9 @@ const Index = () => {
           <div className="max-w-3xl mx-auto px-4 space-y-8 animate-fade-in-up pb-16">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
-                { icon: Brain, title: "AI Analysis", desc: "Gemini 2.5 Pro evaluates your answers" },
+                { icon: Brain, title: "AI Analysis", desc: "Gemini 2.5 Pro + 3 Flash evaluation" },
                 { icon: Target, title: "STAR Method", desc: "Situation, Task, Action, Result" },
-                { icon: Video, title: "Live Camera", desc: "Real video interview simulation" },
+                { icon: Video, title: "Emotion AI", desc: "Vision + MediaPipe fusion tracking" },
                 { icon: Mic, title: "Voice Input", desc: "Speak your answers naturally" },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className="gradient-card rounded-xl border border-border p-4 shadow-card text-center">
@@ -136,7 +150,7 @@ const Index = () => {
         {phase === "loading" && (
           <div className="flex flex-col items-center gap-4 py-20 animate-fade-in-up">
             <Loader2 className="h-10 w-10 text-primary animate-spin" />
-            <p className="text-muted-foreground font-display">Preparing your interview...</p>
+            <p className="text-muted-foreground font-display">Generating personalized questions...</p>
           </div>
         )}
 
@@ -145,13 +159,9 @@ const Index = () => {
           <div className="max-w-7xl mx-auto px-4 pb-16">
             <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_240px] gap-4">
               {/* Left: Camera + Metrics */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <LiveCamera ref={cameraRef} />
-                <RealTimeMetrics
-                  videoRef={cameraRef.current?.videoRef || { current: null }}
-                  isActive={cameraRef.current?.isActive || false}
-                  isListening={isListening}
-                />
+                <RealTimeMetrics metrics={metrics} />
               </div>
 
               {/* Center: Question/Feedback */}
@@ -178,7 +188,11 @@ const Index = () => {
               {/* Right: STAR Tips + Progress */}
               <div className="space-y-4">
                 <StarTips />
-                <ProgressTracker currentQ={currentQ} totalQuestions={questions.length} />
+                <ProgressTracker
+                  currentQ={currentQ}
+                  totalQuestions={questions.length}
+                  categories={categories}
+                />
               </div>
             </div>
           </div>
@@ -188,10 +202,18 @@ const Index = () => {
         {phase === "results" && (
           <div className="max-w-3xl mx-auto px-4 pb-16">
             <FinalResults
-              evaluations={currentEval ? [...evaluations, currentEval] : evaluations}
+              evaluations={allEvaluations}
               questions={questions}
-              onRestart={() => { setPhase("landing"); setCurrentEval(null); }}
+              onRestart={() => { setPhase("landing"); setCurrentEval(null); resetTimeline(); }}
             />
+            <div className="flex justify-center mt-6">
+              <InterviewReport
+                evaluations={allEvaluations}
+                questions={questions}
+                categories={categories}
+                emotionTimeline={timeline}
+              />
+            </div>
           </div>
         )}
       </div>
