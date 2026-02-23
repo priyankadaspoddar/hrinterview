@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { QuestionCard } from "@/components/QuestionCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
@@ -10,9 +10,12 @@ import { ProgressTracker } from "@/components/ProgressTracker";
 import { InterviewReport } from "@/components/InterviewReport";
 import { useEmotionTracking } from "@/hooks/useEmotionTracking";
 import { AlgorithmExplainer } from "@/components/AlgorithmExplainer";
+import { AuthPage } from "@/components/AuthPage";
+import { SessionHistory } from "@/components/SessionHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, Sparkles, Target, ArrowRight, Loader2, Video, Mic } from "lucide-react";
+import { Brain, Sparkles, Target, ArrowRight, Loader2, Video, Mic, LogOut } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
 
 type Phase = "landing" | "loading" | "question" | "feedback" | "results";
 
@@ -30,25 +33,46 @@ interface Evaluation {
 }
 
 const Index = () => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [phase, setPhase] = useState<Phase>("landing");
   const [questions, setQuestions] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [skippedIndices, setSkippedIndices] = useState<Set<number>>(new Set());
   const [currentEval, setCurrentEval] = useState<Evaluation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const cameraRef = useRef<LiveCameraHandle>(null);
   const { toast } = useToast();
 
+  // Auth listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+      setAuthLoading(false);
+    });
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthLoading(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const isInterviewActive = phase === "question" || phase === "feedback";
 
-  // Emotion tracking hook
   const videoRef = cameraRef.current?.videoRef || { current: null };
   const cameraActive = cameraRef.current?.isActive || false;
   const { metrics, timeline, resetTimeline } = useEmotionTracking(
     videoRef, isInterviewActive && cameraActive, isListening
   );
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setPhase("landing");
+  };
 
   const startInterview = async () => {
     setPhase("loading");
@@ -57,16 +81,49 @@ const Index = () => {
         body: { action: "get_questions" },
       });
       if (error) throw error;
+
+      // Create session in DB
+      const { data: sessData, error: sessError } = await supabase
+        .from("interview_sessions")
+        .insert({
+          user_id: session!.user.id,
+          total_questions: data.questions.length,
+          questions_answered: 0,
+        })
+        .select("id")
+        .single();
+      if (sessError) console.warn("Failed to create session", sessError);
+      setSessionId(sessData?.id || null);
+
       setQuestions(data.questions);
       setCategories(data.categories || []);
       setCurrentQ(0);
       setEvaluations([]);
+      setSkippedIndices(new Set());
       setCurrentEval(null);
       resetTimeline();
       setPhase("question");
     } catch {
       toast({ title: "Error", description: "Failed to load questions.", variant: "destructive" });
       setPhase("landing");
+    }
+  };
+
+  const saveAnswer = async (questionIdx: number, evaluation: Evaluation | null, skipped: boolean) => {
+    if (!sessionId) return;
+    try {
+      await supabase.from("session_answers").insert({
+        session_id: sessionId,
+        question: questions[questionIdx],
+        category: categories[questionIdx] || null,
+        score: skipped ? null : evaluation?.overallScore || null,
+        star_scores: skipped ? null : evaluation?.starBreakdown || null,
+        strengths: skipped ? null : evaluation?.strengths || null,
+        improvements: skipped ? null : evaluation?.improvements || null,
+        skipped,
+      });
+    } catch (e) {
+      console.warn("Failed to save answer", e);
     }
   };
 
@@ -78,6 +135,7 @@ const Index = () => {
       });
       if (error) throw error;
       setCurrentEval(data.evaluation);
+      await saveAnswer(currentQ, data.evaluation, false);
       setPhase("feedback");
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Failed to evaluate.", variant: "destructive" });
@@ -86,10 +144,24 @@ const Index = () => {
     }
   };
 
+  const skipQuestion = () => {
+    setSkippedIndices(prev => new Set(prev).add(currentQ));
+    saveAnswer(currentQ, null, true);
+    if (currentQ + 1 >= questions.length) {
+      setPhase("results");
+      updateSessionScore();
+    } else {
+      setCurrentQ(prev => prev + 1);
+      setCurrentEval(null);
+      setPhase("question");
+    }
+  };
+
   const nextQuestion = () => {
     if (currentEval) setEvaluations((prev) => [...prev, currentEval]);
     if (currentQ + 1 >= questions.length) {
       setPhase("results");
+      updateSessionScore();
     } else {
       setCurrentQ((prev) => prev + 1);
       setCurrentEval(null);
@@ -97,7 +169,34 @@ const Index = () => {
     }
   };
 
+  const updateSessionScore = async () => {
+    if (!sessionId) return;
+    const allEvals = currentEval ? [...evaluations, currentEval] : evaluations;
+    const answered = allEvals.length;
+    const avg = answered > 0 ? allEvals.reduce((s, e) => s + e.overallScore, 0) / answered : 0;
+    try {
+      await supabase.from("interview_sessions").update({
+        avg_score: avg,
+        questions_answered: answered,
+      }).eq("id", sessionId);
+    } catch (e) {
+      console.warn("Failed to update session", e);
+    }
+  };
+
   const allEvaluations = currentEval ? [...evaluations, currentEval] : evaluations;
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthPage onAuth={() => {}} />;
+  }
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -106,6 +205,17 @@ const Index = () => {
       <div className="relative z-10">
         {/* Header */}
         <header className="text-center py-6 px-4">
+          <div className="flex justify-end px-4 mb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              className="text-muted-foreground hover:text-foreground font-display text-xs"
+            >
+              <LogOut className="mr-1.5 h-3.5 w-3.5" />
+              Sign Out
+            </Button>
+          </div>
           <div className="inline-flex items-center gap-2 gradient-primary text-primary-foreground text-xs font-display font-semibold px-4 py-1.5 rounded-full mb-4">
             <Sparkles className="h-3.5 w-3.5" />
             Powered by Gemini 2.5 Pro + Gemini 3 Flash
@@ -145,6 +255,9 @@ const Index = () => {
               </Button>
             </div>
 
+            {/* Session History */}
+            <SessionHistory />
+
             {/* Algorithm Explainer */}
             <AlgorithmExplainer />
           </div>
@@ -176,6 +289,7 @@ const Index = () => {
                     questionNumber={currentQ + 1}
                     totalQuestions={questions.length}
                     onSubmit={submitAnswer}
+                    onSkip={skipQuestion}
                     isLoading={isLoading}
                   />
                 )}

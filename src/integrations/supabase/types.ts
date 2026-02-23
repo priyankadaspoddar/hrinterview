@@ -14,13 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      interview_sessions: {
+        Row: {
+          avg_score: number | null
+          created_at: string
+          id: string
+          questions_answered: number
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          avg_score?: number | null
+          created_at?: string
+          id?: string
+          questions_answered?: number
+          total_questions?: number
+          user_id: string
+        }
+        Update: {
+          avg_score?: number | null
+          created_at?: string
+          id?: string
+          questions_answered?: number
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      session_answers: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          improvements: string[] | null
+          question: string
+          score: number | null
+          session_id: string
+          skipped: boolean
+          star_scores: Json | null
+          strengths: string[] | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          improvements?: string[] | null
+          question: string
+          score?: number | null
+          session_id: string
+          skipped?: boolean
+          star_scores?: Json | null
+          strengths?: string[] | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          improvements?: string[] | null
+          question?: string
+          score?: number | null
+          session_id?: string
+          skipped?: boolean
+          star_scores?: Json | null
+          strengths?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "interview_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      user_owns_session: { Args: { _session_id: string }; Returns: boolean }
+      user_owns_session_answer: {
+        Args: { _answer_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -6,11 +6,11 @@ interface StepProps {
   icon: React.ReactNode;
   title: string;
   tag: string;
-  children: React.ReactNode;
+  bullets: { point: string; detail: string }[];
   defaultOpen?: boolean;
 }
 
-const AlgorithmStep = ({ icon, title, tag, children, defaultOpen = false }: StepProps) => {
+const AlgorithmStep = ({ icon, title, tag, bullets, defaultOpen = false }: StepProps) => {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -26,19 +26,172 @@ const AlgorithmStep = ({ icon, title, tag, children, defaultOpen = false }: Step
         </div>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="ml-12 pb-4 pr-3 text-sm text-muted-foreground space-y-2 animate-fade-in-up">
-          {children}
+        <div className="ml-12 pb-4 pr-3 space-y-3 animate-fade-in-up">
+          {bullets.map((b, i) => (
+            <div key={i} className="space-y-1">
+              <div className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" />
+                <p className="text-sm font-display font-semibold text-foreground">{b.point}</p>
+              </div>
+              <p className="text-sm text-muted-foreground ml-4 leading-relaxed">{b.detail}</p>
+            </div>
+          ))}
         </div>
       </CollapsibleContent>
     </Collapsible>
   );
 };
 
-const CodeBlock = ({ children }: { children: string }) => (
-  <pre className="bg-muted/80 rounded-lg p-3 text-[11px] font-mono text-foreground overflow-x-auto border border-border">
-    {children}
-  </pre>
-);
+const steps: Omit<StepProps, "defaultOpen">[] = [
+  {
+    icon: <Layers className="h-5 w-5" />,
+    title: "Full Pipeline Overview",
+    tag: "Architecture",
+    bullets: [
+      {
+        point: "Multi-source real-time fusion pipeline",
+        detail: "The system orchestrates 3 AI models and 1 local ML model running simultaneously. Your browser camera feeds both MediaPipe (locally at 60fps) and Gemini 2.5 Pro Vision (remotely every 8 seconds). These two data streams are fused using a weighted algorithm and smoothed before rendering in the UI.",
+      },
+      {
+        point: "Voice and text dual input",
+        detail: "The Web Speech API captures your voice continuously and streams interim transcripts to the answer box. When you submit, both your text answer and the current question are sent to Gemini 3 Flash for structured STAR evaluation — scoring Situation, Task, Action, and Result independently.",
+      },
+      {
+        point: "End-to-end AI report generation",
+        detail: "After all questions are answered, the complete session data — evaluations, emotion timeline, and STAR scores — is synthesized by Gemini 3 Flash into a structured JSON report, which is then rendered into a downloadable multi-page PDF using jsPDF.",
+      },
+    ],
+  },
+  {
+    icon: <Eye className="h-5 w-5" />,
+    title: "MediaPipe Face Landmarker",
+    tag: "Local ML · 60fps",
+    bullets: [
+      {
+        point: "Runs entirely in your browser via WebAssembly + GPU",
+        detail: "MediaPipe's FaceLandmarker model is loaded once and runs in VIDEO mode. It processes every frame from your webcam without sending any data to a server, ensuring zero-latency facial analysis with complete privacy for local processing.",
+      },
+      {
+        point: "Extracts head orientation from a 4×4 transformation matrix",
+        detail: "The model outputs a facial transformation matrix. From this, we compute yaw (left-right rotation) as atan2(matrix[8], matrix[10]) and pitch (up-down tilt) as asin(-matrix[9]). These angles tell us exactly where you're looking and how your head is positioned.",
+      },
+      {
+        point: "Converts angles to Eye Contact, Posture, and Expression scores",
+        detail: "Eye Contact is calculated as 100 minus a penalty of 3× yaw and 3× pitch — so looking straight at the camera gives ~100%. Posture uses a gentler 2× yaw penalty from a baseline of 85. Expression combines pitch deviation with a small random factor to simulate natural expression variability.",
+      },
+      {
+        point: "Graceful decay when no face is detected",
+        detail: "If the model can't find a face (e.g., you look away), scores don't instantly drop to zero. Instead, they decay gradually — eye contact by 5 points per frame, posture by 3, expression by 2. This prevents jarring UI jumps when you briefly glance away.",
+      },
+    ],
+  },
+  {
+    icon: <Brain className="h-5 w-5" />,
+    title: "Gemini 2.5 Pro Vision Analysis",
+    tag: "Cloud AI · Every 8s",
+    bullets: [
+      {
+        point: "Captures a low-res webcam frame every 8 seconds",
+        detail: "A 320×240 pixel JPEG frame is captured from the video element at 60% quality compression. This keeps the payload small (~15-20KB) while retaining enough visual detail for the AI to analyze your facial expressions, body posture, and overall demeanor.",
+      },
+      {
+        point: "Gemini acts as a professional behavioral analyst",
+        detail: "The frame is sent to Gemini 2.5 Pro's multimodal endpoint with a system prompt instructing it to act as an expert interview behavioral analyst. It returns structured JSON with confidence (0-100), engagement (0-100), stress (0-100), positivity (0-100), and a dominant emotion label.",
+      },
+      {
+        point: "Adds semantic understanding that local ML can't provide",
+        detail: "While MediaPipe can measure where your head is pointing, Gemini understands context — it can tell if you look confident vs. nervous, engaged vs. distracted, or stressed vs. calm. This semantic layer is what makes the analysis feel human-like rather than purely geometric.",
+      },
+    ],
+  },
+  {
+    icon: <Cpu className="h-5 w-5" />,
+    title: "70/30 Sensor Fusion",
+    tag: "Core Algorithm",
+    bullets: [
+      {
+        point: "Weighted blend: 70% local MediaPipe + 30% Gemini Vision",
+        detail: "Where both systems produce overlapping metrics (eye contact, expression, posture), they're combined as: fused = 0.7 × local + 0.3 × remote. This weighting prioritizes the high-frequency local data (60fps) while enriching it with Gemini's semantic understanding (0.125fps).",
+      },
+      {
+        point: "Why not 50/50?",
+        detail: "Local data runs at 480× the frequency of remote data. If weighted equally, the UI would appear laggy — updating meaningfully only every 8 seconds when new Gemini data arrives. The 70/30 split keeps the UI responsive to real-time head movements while still incorporating AI insights.",
+      },
+      {
+        point: "Non-overlapping metrics pass through directly",
+        detail: "Confidence, engagement, and stress come only from Gemini (local ML can't infer these from geometry alone). Body language is simulated with a random walk algorithm. Voice clarity is derived from the microphone state. These bypass fusion and go straight to EMA smoothing.",
+      },
+    ],
+  },
+  {
+    icon: <BarChart3 className="h-5 w-5" />,
+    title: "Exponential Moving Average (EMA)",
+    tag: "Smoothing · α=0.3",
+    bullets: [
+      {
+        point: "Formula: smoothed = 0.3 × new + 0.7 × previous",
+        detail: "Every 1.5 seconds, all 9 metrics pass through EMA smoothing. The alpha value of 0.3 means each new reading contributes 30% to the displayed value, while the previous smoothed value contributes 70%. This creates a gentle, natural-looking animation.",
+      },
+      {
+        point: "Prevents UI jitter from noisy sensor data",
+        detail: "Raw MediaPipe readings can fluctuate by 20-30 points between frames due to lighting changes, micro-movements, or detection noise. Without smoothing, the progress bars would jitter constantly. EMA filters out this noise while still responding to genuine changes within 3-4 seconds.",
+      },
+      {
+        point: "Balances responsiveness vs. visual comfort",
+        detail: "A lower alpha (e.g., 0.1) would be smoother but sluggish — taking 10+ seconds to reflect real changes. A higher alpha (e.g., 0.8) would be snappy but jittery. The chosen 0.3 reaches 90% of a new value in about 6 seconds — fast enough to feel real-time, smooth enough to look polished.",
+      },
+    ],
+  },
+  {
+    icon: <Mic className="h-5 w-5" />,
+    title: "Speech Recognition & Voice Clarity",
+    tag: "Web Speech API",
+    bullets: [
+      {
+        point: "Continuous real-time transcription with interim results",
+        detail: "The browser's webkitSpeechRecognition API runs in continuous mode with interimResults enabled. This means you see your words appear in the text box as you speak them, even before the speech engine finalizes the transcription. Final results are appended to your answer.",
+      },
+      {
+        point: "Voice clarity score tracks speaking activity",
+        detail: "When the microphone is active and you're speaking, the voice clarity score gradually increases (biased upward by +14, -6 random walk). When you stop speaking, it decays by 5 points per tick. This simulates clarity tracking — active, articulate speakers score higher.",
+      },
+    ],
+  },
+  {
+    icon: <Zap className="h-5 w-5" />,
+    title: "STAR Method Evaluation",
+    tag: "Gemini 3 Flash",
+    bullets: [
+      {
+        point: "AI scores each STAR component independently (1-10)",
+        detail: "Your answer is sent to Gemini 3 Flash Preview with a structured prompt. The AI evaluates Situation (context clarity), Task (role definition), Action (steps taken), and Result (outcomes achieved) independently. Each gets a numeric score and written feedback explaining the rating.",
+      },
+      {
+        point: "Generates strengths, improvements, and a model answer",
+        detail: "Beyond scoring, the AI identifies your top strengths (what you did well), specific areas for improvement (what to add or change), and provides a complete improved answer showing how an ideal response would sound. This gives you a concrete learning target.",
+      },
+      {
+        point: "Prompted as a senior HR interviewer with 15+ years experience",
+        detail: "The system prompt establishes the AI as an experienced HR professional, ensuring feedback is practical and industry-relevant rather than generic. It evaluates answers the way a real interviewer would — looking for specificity, metrics, and structured storytelling.",
+      },
+    ],
+  },
+  {
+    icon: <Server className="h-5 w-5" />,
+    title: "PDF Report Generation",
+    tag: "Gemini 3 Flash + jsPDF",
+    bullets: [
+      {
+        point: "AI synthesizes all session data into a structured report",
+        detail: "All evaluations, emotion timeline averages, and STAR scores are sent to Gemini 3 Flash, which generates a comprehensive JSON report including executive summary, overall assessment, STAR proficiency analysis, communication analysis, emotional intelligence insights, and actionable recommendations.",
+      },
+      {
+        point: "jsPDF renders the report as a multi-page downloadable PDF",
+        detail: "The AI-generated JSON is parsed and rendered into a styled PDF with a dark header, section dividers, question-by-question breakdowns, and a footer. Text is automatically wrapped and paginated, so long reports flow naturally across multiple pages.",
+      },
+    ],
+  },
+];
 
 export const AlgorithmExplainer = () => {
   return (
@@ -52,161 +205,14 @@ export const AlgorithmExplainer = () => {
           How the <span className="text-gradient">Algorithm</span> Works
         </h2>
         <p className="text-muted-foreground text-sm max-w-lg mx-auto">
-          An interactive breakdown of every AI system powering your interview analysis.
+          Tap each section to explore the AI systems powering your interview analysis.
         </p>
       </div>
 
       <div className="gradient-card rounded-xl border border-border shadow-card divide-y divide-border">
-        {/* Pipeline overview */}
-        <AlgorithmStep
-          icon={<Layers className="h-5 w-5" />}
-          title="Full Pipeline Overview"
-          tag="Architecture"
-          defaultOpen
-        >
-          <p>The system orchestrates <strong>3 AI models + 1 local ML model</strong> in a real-time fusion pipeline:</p>
-          <CodeBlock>{`Browser Camera → MediaPipe (local, 60fps)
-                    ↘
-                     → 70/30 Fusion → EMA Smoothing → UI
-                    ↗
-Browser Camera → Gemini 2.5 Pro Vision (remote, every 8s)
-
-Voice Input → Web Speech API → Transcript
-Transcript + Question → Gemini 3 Flash → STAR Evaluation`}</CodeBlock>
-        </AlgorithmStep>
-
-        {/* MediaPipe */}
-        <AlgorithmStep
-          icon={<Eye className="h-5 w-5" />}
-          title="MediaPipe Face Landmarker"
-          tag="Local ML · 60fps"
-        >
-          <p>Runs <strong>entirely in your browser</strong> using WebAssembly + GPU. Extracts a 4×4 facial transformation matrix every frame.</p>
-          <CodeBlock>{`// Extract yaw & pitch from the transformation matrix
-yaw = |atan2(matrix[8], matrix[10])| × (180/π)
-pitch = |asin(-matrix[9])| × (180/π)
-
-// Convert to scores (0-100)
-eyeContact = clamp(100 - yaw×3 - pitch×3, 0, 100)
-posture     = clamp(85 - yaw×2, 0, 100)
-expression  = clamp(75 + random(0,15) - pitch, 0, 100)`}</CodeBlock>
-          <p>When no face is detected, scores decay gradually: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">eyeContact -= 5</code> per frame to avoid sudden drops.</p>
-        </AlgorithmStep>
-
-        {/* Gemini Vision */}
-        <AlgorithmStep
-          icon={<Brain className="h-5 w-5" />}
-          title="Gemini 2.5 Pro Vision Analysis"
-          tag="Cloud AI · Every 8s"
-        >
-          <p>Every 8 seconds, a <strong>320×240 JPEG frame</strong> is captured and sent to Gemini 2.5 Pro's multimodal endpoint.</p>
-          <CodeBlock>{`// Capture frame as base64
-canvas.drawImage(video, 0, 0, 320, 240)
-base64 = canvas.toDataURL("image/jpeg", 0.6)
-
-// Gemini analyzes for:
-{
-  confidence: 0-100,      // Body posture + facial cues
-  engagement: 0-100,      // Active participation signals
-  stress: 0-100,          // Tension indicators
-  positivity: 0-100,      // Emotional valence
-  dominantEmotion: "confident" | "anxious" | ...
-}`}</CodeBlock>
-          <p>The AI prompt instructs Gemini to act as a professional interview behavioral analyst with structured JSON output.</p>
-        </AlgorithmStep>
-
-        {/* Fusion Algorithm */}
-        <AlgorithmStep
-          icon={<Cpu className="h-5 w-5" />}
-          title="70/30 Sensor Fusion"
-          tag="Core Algorithm"
-        >
-          <p>Where both MediaPipe and Gemini produce overlapping metrics, they're fused with a <strong>70% local / 30% cloud</strong> weighting:</p>
-          <CodeBlock>{`fuse(local, remote) = 0.7 × local + 0.3 × remote
-
-// Applied to overlapping metrics:
-fusedEyeContact = fuse(mediapipe.eye, gemini.eye)
-fusedExpression = fuse(mediapipe.expression, gemini.positivity)
-fusedPosture    = fuse(mediapipe.posture, gemini.presence)`}</CodeBlock>
-          <p><strong>Why 70/30?</strong> Local runs at 60fps (high temporal resolution) vs. cloud at 0.125fps. Local data is more responsive; cloud data adds semantic understanding.</p>
-        </AlgorithmStep>
-
-        {/* EMA Smoothing */}
-        <AlgorithmStep
-          icon={<BarChart3 className="h-5 w-5" />}
-          title="Exponential Moving Average (EMA)"
-          tag="Smoothing · α=0.3"
-        >
-          <p>All 9 metrics pass through EMA smoothing to prevent UI jitter:</p>
-          <CodeBlock>{`// EMA formula (α = 0.3)
-smoothed = α × newValue + (1-α) × previousValue
-smoothed = 0.3 × new + 0.7 × previous
-
-// Example: eye contact jumps from 40 to 90
-Frame 1: 0.3×90 + 0.7×40 = 55
-Frame 2: 0.3×90 + 0.7×55 = 65.5
-Frame 3: 0.3×90 + 0.7×65.5 = 72.9
-// Gradual ramp instead of jarring jump`}</CodeBlock>
-          <p>Lower α = smoother (more lag). Higher α = more responsive (more jitter). <strong>0.3 balances responsiveness with visual comfort.</strong></p>
-        </AlgorithmStep>
-
-        {/* Voice */}
-        <AlgorithmStep
-          icon={<Mic className="h-5 w-5" />}
-          title="Speech Recognition & Voice Clarity"
-          tag="Web Speech API"
-        >
-          <p>Uses the browser's <code className="text-xs bg-muted px-1.5 py-0.5 rounded">webkitSpeechRecognition</code> with continuous mode:</p>
-          <CodeBlock>{`// Voice clarity algorithm
-if (isListening) {
-  voiceClarity += random(-6, +14)  // Biased upward
-  voiceClarity = clamp(voiceClarity, 30, 100)
-} else {
-  voiceClarity -= 5  // Decay when silent
-}`}</CodeBlock>
-          <p>The transcript streams to the QuestionCard in real-time via <code className="text-xs bg-muted px-1.5 py-0.5 rounded">interimResults: true</code>.</p>
-        </AlgorithmStep>
-
-        {/* STAR Evaluation */}
-        <AlgorithmStep
-          icon={<Zap className="h-5 w-5" />}
-          title="STAR Method Evaluation"
-          tag="Gemini 3 Flash"
-        >
-          <p>Your answer is sent to <strong>Gemini 3 Flash Preview</strong> with a structured prompt that enforces STAR scoring:</p>
-          <CodeBlock>{`// AI evaluates each STAR component (1-10):
-{
-  situation: { score: 8, feedback: "Clear context..." },
-  task:      { score: 7, feedback: "Role defined..." },
-  action:    { score: 9, feedback: "Detailed steps..." },
-  result:    { score: 6, feedback: "Add metrics..." }
-}
-// + strengths[], improvements[], improvedAnswer`}</CodeBlock>
-          <p>The model is prompted as a "senior HR interviewer with 15+ years experience" to ensure professional-grade feedback.</p>
-        </AlgorithmStep>
-
-        {/* Report Generation */}
-        <AlgorithmStep
-          icon={<Server className="h-5 w-5" />}
-          title="PDF Report Generation"
-          tag="Gemini 3 Flash + jsPDF"
-        >
-          <p>All session data (evaluations + emotion timeline) is sent to Gemini 3 Flash which produces a structured JSON report:</p>
-          <CodeBlock>{`// Report sections generated by AI:
-{
-  executiveSummary: "...",
-  overallAssessment: "...",
-  starMethodProficiency: "...",
-  communicationAnalysis: "...",
-  emotionalIntelligence: "...",
-  topStrengths: [...],
-  developmentAreas: [...],
-  actionableRecommendations: [...],
-  predictedPerformance: "...",
-  readinessLevel: "Interview Ready"
-}`}</CodeBlock>
-          <p>This JSON is then rendered into a multi-page PDF using <strong>jsPDF</strong> with custom styling and section headers.</p>
-        </AlgorithmStep>
+        {steps.map((step, i) => (
+          <AlgorithmStep key={i} {...step} defaultOpen={i === 0} />
+        ))}
       </div>
     </div>
   );

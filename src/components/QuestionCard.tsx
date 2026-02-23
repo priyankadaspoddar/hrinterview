@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, Mic, MicOff } from "lucide-react";
+import { Send, Loader2, Mic, MicOff, SkipForward } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 interface QuestionCardProps {
@@ -9,6 +9,7 @@ interface QuestionCardProps {
   questionNumber: number;
   totalQuestions: number;
   onSubmit: (answer: string) => void;
+  onSkip: () => void;
   isLoading: boolean;
 }
 
@@ -17,6 +18,7 @@ export const QuestionCard = ({
   questionNumber,
   totalQuestions,
   onSubmit,
+  onSkip,
   isLoading,
 }: QuestionCardProps) => {
   const [answer, setAnswer] = useState("");
@@ -97,23 +99,34 @@ export const QuestionCard = ({
         <span className="text-xs text-muted-foreground">
           {answer.length} characters
         </span>
-        <Button
-          onClick={handleSubmit}
-          disabled={!answer.trim() || isLoading}
-          className="gradient-primary text-primary-foreground font-display font-semibold px-5 hover:opacity-90 transition-opacity"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            <>
-              <Send className="mr-2 h-4 w-4" />
-              Submit
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={onSkip}
+            disabled={isLoading}
+            variant="outline"
+            className="font-display font-semibold text-muted-foreground hover:text-foreground border-border"
+          >
+            <SkipForward className="mr-1.5 h-4 w-4" />
+            Skip
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!answer.trim() || isLoading}
+            className="gradient-primary text-primary-foreground font-display font-semibold px-5 hover:opacity-90 transition-opacity"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                Submit
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
