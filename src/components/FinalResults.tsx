@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Trophy, TrendingUp } from "lucide-react";
+import { ResultsCharts } from "./ResultsCharts";
 
 interface Evaluation {
   overallScore: number;
@@ -93,6 +94,9 @@ export const FinalResults = ({ evaluations, questions, onRestart }: FinalResults
           ))}
         </div>
       </div>
+
+      {/* Charts */}
+      <ResultsCharts evaluations={evaluations} />
 
       <div className="flex justify-center pt-2">
         <Button

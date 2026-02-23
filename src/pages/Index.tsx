@@ -9,6 +9,7 @@ import { StarTips } from "@/components/StarTips";
 import { ProgressTracker } from "@/components/ProgressTracker";
 import { InterviewReport } from "@/components/InterviewReport";
 import { useEmotionTracking } from "@/hooks/useEmotionTracking";
+import { AlgorithmExplainer } from "@/components/AlgorithmExplainer";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Brain, Sparkles, Target, ArrowRight, Loader2, Video, Mic } from "lucide-react";
@@ -143,6 +144,9 @@ const Index = () => {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
+
+            {/* Algorithm Explainer */}
+            <AlgorithmExplainer />
           </div>
         )}
 
