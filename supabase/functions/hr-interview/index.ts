@@ -2,8 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const QUESTION_CATEGORIES = [
@@ -29,34 +28,28 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { action } = body;
-
-    // ✅ Use GEMINI_API_KEY instead of LOVABLE_API_KEY
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
-
-    // ✅ Gemini's OpenAI-compatible endpoint
-    const GEMINI_BASE_URL =
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const callAI = async (model: string, messages: any[], extraOpts: any = {}) => {
-      const response = await fetch(`${GEMINI_BASE_URL}?key=${GEMINI_API_KEY}`, {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ model, messages, ...extraOpts }),
       });
-
       if (!response.ok) {
         if (response.status === 429) {
           throw { status: 429, message: "Rate limit exceeded. Please wait a moment and try again." };
         }
-        if (response.status === 402 || response.status === 403) {
-          throw { status: 402, message: "Gemini API quota exceeded or key invalid." };
+        if (response.status === 402) {
+          throw { status: 402, message: "Usage limit reached. Please add credits." };
         }
         const t = await response.text();
-        console.error("Gemini API error:", response.status, t);
-        throw { status: 500, message: "Gemini API error" };
+        console.error("AI gateway error:", response.status, t);
+        throw { status: 500, message: "AI gateway error" };
       }
       return response.json();
     };
@@ -66,7 +59,7 @@ serve(async (req) => {
       const shuffled = [...QUESTION_CATEGORIES].sort(() => Math.random() - 0.5);
       const selectedCategories = shuffled.slice(0, 5);
 
-      const data = await callAI("gemini-2.5-pro", [
+      const data = await callAI("google/gemini-2.5-pro", [
         {
           role: "system",
           content: `You are an expert HR interviewer. Generate exactly 5 behavioral interview questions, one for each of these categories: ${selectedCategories.join(", ")}.
@@ -91,22 +84,21 @@ Return ONLY a JSON object:
       if (!jsonMatch) throw new Error("Failed to parse AI questions");
       const parsed = JSON.parse(jsonMatch[0]);
 
-      return new Response(
-        JSON.stringify({
-          questions: parsed.questions.map((q: any) => q.question),
-          categories: parsed.questions.map((q: any) => q.category),
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        questions: parsed.questions.map((q: any) => q.question),
+        categories: parsed.questions.map((q: any) => q.category),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // ─── Evaluate answer with STAR analysis (Gemini 2.0 Flash) ───
+    // ─── Evaluate answer with STAR analysis (Gemini 3 Flash Preview) ───
     if (action === "evaluate") {
       const { answer, question, questionNumber } = body;
-      const data = await callAI("gemini-2.0-flash", [
+      const data = await callAI("google/gemini-3-flash-preview", [
         {
           role: "system",
-          content: `You are an expert HR interview coach. Evaluate the candidate's answer using the STAR method (Situation, Task, Action, Result).
+          content: `You are an expert HR interview coach. Evaluate the candidate's answer using the STAR method (Situation, Task, Action, Result). 
 
 Provide your evaluation in the following JSON format:
 {
@@ -140,17 +132,15 @@ Be encouraging but honest. Focus on practical, actionable feedback.`,
       });
     }
 
-    // ─── Vision-based emotion analysis (Gemini 2.0 Flash) ───
+    // ─── Vision-based emotion analysis (Gemini 2.5 Pro) ───
     if (action === "analyze_emotion") {
       const { frameBase64 } = body;
       if (!frameBase64) throw new Error("No frame provided");
 
-      const data = await callAI("gemini-2.0-flash", [
+      const data = await callAI("google/gemini-2.5-pro", [
         {
           role: "system",
-          content: `You are an expert in facial expression and body language analysis for interview coaching.
-
-Analyze the provided image of a person during a video interview.
+          content: `You are an expert in facial expression and body language analysis for interview coaching. Analyze the provided image of a person during a video interview.
 
 Return ONLY a JSON object with scores from 0-100:
 {
@@ -168,10 +158,7 @@ Return ONLY a JSON object with scores from 0-100:
           role: "user",
           content: [
             { type: "text", text: "Analyze this interview candidate's expression and body language:" },
-            {
-              type: "image_url",
-              image_url: { url: `data:image/jpeg;base64,${frameBase64}` },
-            },
+            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${frameBase64}` } },
           ],
         },
       ]);
@@ -186,14 +173,13 @@ Return ONLY a JSON object with scores from 0-100:
       });
     }
 
-    // ─── Generate PDF report (Gemini 2.0 Flash) ───
+    // ─── Generate PDF report (Gemini 3 Flash Preview) ───
     if (action === "generate_report") {
       const { evaluations, questions, categories, emotionTimeline, overallEmotionAvg } = body;
 
-      const avgScore =
-        evaluations.reduce((s: number, e: any) => s + e.overallScore, 0) / evaluations.length;
+      const avgScore = evaluations.reduce((s: number, e: any) => s + e.overallScore, 0) / evaluations.length;
 
-      const data = await callAI("gemini-2.0-flash", [
+      const data = await callAI("google/gemini-3-flash-preview", [
         {
           role: "system",
           content: `You are an expert HR interview report writer. Generate a comprehensive, professional interview performance report.
@@ -218,22 +204,13 @@ Return a JSON object:
 Average Score: ${avgScore.toFixed(1)}/10
 
 Questions & Scores:
-${evaluations
-  .map(
-    (e: any, i: number) =>
-      `Q${i + 1} [${categories?.[i] || "General"}]: "${questions[i]}" → Score: ${e.overallScore}/10
+${evaluations.map((e: any, i: number) => `Q${i + 1} [${categories?.[i] || "General"}]: "${questions[i]}" → Score: ${e.overallScore}/10
   S:${e.starBreakdown.situation.score} T:${e.starBreakdown.task.score} A:${e.starBreakdown.action.score} R:${e.starBreakdown.result.score}
   Strengths: ${e.strengths.join(", ")}
-  Improvements: ${e.improvements.join(", ")}`
-  )
-  .join("\n\n")}
+  Improvements: ${e.improvements.join(", ")}`).join("\n\n")}
 
 Emotion Tracking Summary:
-${
-  overallEmotionAvg
-    ? `Eye Contact: ${overallEmotionAvg.eyeContact}%, Confidence: ${overallEmotionAvg.confidence}%, Engagement: ${overallEmotionAvg.engagement}%, Stress: ${overallEmotionAvg.stress}%, Positivity: ${overallEmotionAvg.positivity}%`
-    : "No emotion data available"
-}
+${overallEmotionAvg ? `Eye Contact: ${overallEmotionAvg.eyeContact}%, Confidence: ${overallEmotionAvg.confidence}%, Engagement: ${overallEmotionAvg.engagement}%, Stress: ${overallEmotionAvg.stress}%, Positivity: ${overallEmotionAvg.positivity}%` : "No emotion data available"}
 
 Generate a thorough, professional HR interview report.`,
         },
