@@ -247,7 +247,6 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (e: any) {
     console.error("hr-interview error:", e);
     const status = e?.status || 500;
