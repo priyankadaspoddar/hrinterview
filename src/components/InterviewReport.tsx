@@ -164,9 +164,9 @@ export const InterviewReport = ({ evaluations, questions, categories, emotionTim
 
       doc.save(`HR_Interview_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
       toast({ title: "Report Downloaded", description: "Your detailed HR interview report has been saved." });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Report generation error:", e);
-      toast({ title: "Error", description: e?.message || "Failed to generate report.", variant: "destructive" });
+      toast({ title: "Error", description: (e as Error)?.message || "Failed to generate report.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }

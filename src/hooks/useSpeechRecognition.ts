@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const SpeechRecognition =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 interface UseSpeechRecognitionOptions {
@@ -8,6 +9,7 @@ interface UseSpeechRecognitionOptions {
 }
 
 export const useSpeechRecognition = ({ onTranscript }: UseSpeechRecognitionOptions) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -22,6 +24,7 @@ export const useSpeechRecognition = ({ onTranscript }: UseSpeechRecognitionOptio
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       let interim = "";
       let final = "";
@@ -44,10 +47,12 @@ export const useSpeechRecognition = ({ onTranscript }: UseSpeechRecognitionOptio
 
     recognition.onend = () => {
       if (isListeningRef.current) {
+        // eslint-disable-next-line no-empty
         try { recognition.start(); } catch {}
       }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
       if (event.error === "not-allowed") {
         isListeningRef.current = false;

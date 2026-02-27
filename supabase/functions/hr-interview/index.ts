@@ -30,14 +30,14 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
-    // ✅ Reads "gemini" secret saved in Lovable
+    // ✅ Reads "gemini" secret from environment
     const GEMINI_API_KEY = Deno.env.get("gemini");
-    if (!GEMINI_API_KEY) throw new Error("Gemini API key not found. Please add 'gemini' secret in Lovable.");
+    if (!GEMINI_API_KEY) throw new Error("Gemini API key not found. Please set the 'gemini' environment variable.");
 
     // ✅ Call Gemini 1.5 Flash directly via native REST API
     const callAI = async (prompt: string) => {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -92,7 +92,9 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
 
       return new Response(
         JSON.stringify({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           questions: parsed.questions.map((q: any) => q.question),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           categories: parsed.questions.map((q: any) => q.category),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -139,7 +141,7 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
       if (!frameBase64) throw new Error("No frame provided");
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -189,6 +191,7 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
       const { evaluations, questions, categories, overallEmotionAvg } = body;
 
       const avgScore =
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         evaluations.reduce((s: number, e: any) => s + e.overallScore, 0) / evaluations.length;
 
       const prompt = `You are an expert HR interview report writer. Generate a comprehensive, professional interview performance report.
@@ -199,6 +202,7 @@ Average Score: ${avgScore.toFixed(1)}/10
 Questions & Scores:
 ${evaluations
   .map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (e: any, i: number) =>
       `Q${i + 1} [${categories?.[i] || "General"}]: "${questions[i]}" → Score: ${e.overallScore}/10
   S:${e.starBreakdown.situation.score} T:${e.starBreakdown.task.score} A:${e.starBreakdown.action.score} R:${e.starBreakdown.result.score}
@@ -243,6 +247,7 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (e: any) {
     console.error("hr-interview error:", e);
     const status = e?.status || 500;

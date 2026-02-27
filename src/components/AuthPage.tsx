@@ -37,10 +37,10 @@ export const AuthPage = ({ onAuth }: AuthPageProps) => {
           description: "We sent you a confirmation link. Please verify your email to sign in.",
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Error",
-        description: err.message || "Authentication failed",
+        description: (err as Error)?.message || "Authentication failed",
         variant: "destructive",
       });
     } finally {

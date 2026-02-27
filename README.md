@@ -1,73 +1,88 @@
-# Welcome to your Lovable project
+# HR Interview Practice App
 
-## Project info
+An AI-powered HR interview practice application that helps users prepare for behavioral interviews using the STAR method.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+- **AI-Generated Questions**: Get personalized behavioral interview questions across various categories
+- **Real-time Feedback**: Receive instant AI evaluation using the STAR (Situation, Task, Action, Result) method
+- **Emotion Tracking**: Vision-based emotion analysis for body language assessment
+- **Voice Input**: Speak your answers naturally with speech recognition
+- **PDF Reports**: Generate comprehensive interview performance reports
+- **Progress Tracking**: Monitor your improvement across multiple sessions
 
-There are several ways of editing your application.
+## Technologies Used
 
-**Use Lovable**
+- **Frontend**: React, TypeScript, Vite
+- **UI**: shadcn/ui, Tailwind CSS
+- **Backend**: Supabase Edge Functions (Deno)
+- **AI**: Google Gemini 1.5 Flash for question generation and evaluation
+- **Computer Vision**: MediaPipe for emotion tracking
+- **Database**: Supabase for user management and data storage
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js (v18 or higher)
+- npm or yarn
+- Supabase account
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+1. Clone the repository:
+```bash
 git clone <YOUR_GIT_URL>
+cd hrinterview
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2. Install dependencies:
+```bash
+npm install
+```
 
-# Step 3: Install the necessary dependencies.
-npm i
+3. Set up environment variables:
+Create a `.env` file in the root directory with your Supabase credentials:
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+4. Set up Supabase:
+- Create a new Supabase project
+- Deploy the edge function from `supabase/functions/hr-interview/`
+- Set the `gemini` secret in Supabase with your Google Gemini API key
+
+5. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Deployment
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+This app can be deployed to any static hosting service like Vercel, Netlify, or GitHub Pages.
 
-**Use GitHub Codespaces**
+For production deployment:
+1. Build the app: `npm run build`
+2. Deploy the `dist` folder to your hosting service
+3. Ensure environment variables are set in your deployment platform
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Usage
 
-## What technologies are used for this project?
+1. **Sign Up/Login**: Create an account to track your progress
+2. **Start Interview**: Click "Start Interview" to begin
+3. **Answer Questions**: Respond to AI-generated questions using the STAR method
+4. **Receive Feedback**: Get real-time evaluation and improvement suggestions
+5. **Generate Report**: Download a comprehensive PDF report of your performance
 
-This project is built with:
+## Contributing
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `npm run test`
+5. Submit a pull request
 
-## How can I deploy this project?
+## License
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project is licensed under the MIT License.

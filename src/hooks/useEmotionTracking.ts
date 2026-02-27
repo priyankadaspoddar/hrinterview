@@ -54,6 +54,7 @@ export function useEmotionTracking(
   });
   const [timeline, setTimeline] = useState<EmotionMetrics[]>([]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const faceLandmarkerRef = useRef<any>(null);
   const animFrameRef = useRef<number>();
   const localRef = useRef<MediaPipeMetrics>({ eyeContact: 0, posture: 0, expression: 0 });
@@ -122,6 +123,7 @@ export function useEmotionTracking(
             expression: Math.max(0, localRef.current.expression - 2),
           };
         }
+      // eslint-disable-next-line no-empty
       } catch {}
       animFrameRef.current = requestAnimationFrame(detect);
     };

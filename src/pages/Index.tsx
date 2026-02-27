@@ -66,8 +66,8 @@ const Index = () => {
       setCurrentEval(null);
       resetTimeline();
       setPhase("question");
-    } catch {
-      toast({ title: "Error", description: "Failed to load questions.", variant: "destructive" });
+    } catch (error: unknown) {
+      toast({ title: "Error", description: (error as Error)?.message || "Failed to load questions.", variant: "destructive" });
       setPhase("landing");
     }
   };
@@ -81,8 +81,8 @@ const Index = () => {
       if (error) throw error;
       setCurrentEval(data.evaluation);
       setPhase("feedback");
-    } catch (e: any) {
-      toast({ title: "Error", description: e?.message || "Failed to evaluate.", variant: "destructive" });
+    } catch (error: unknown) {
+      toast({ title: "Error", description: (error as Error)?.message || "Failed to evaluate.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
