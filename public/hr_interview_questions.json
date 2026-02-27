@@ -1,0 +1,112 @@
+[
+  {
+    "question": "Tell me about a time when you had to adapt to a significant change at work. What was the situation and how did you handle it?",
+    "category": "Adaptability & Change Management",
+    "role": "General",
+    "experience": "Mid-level",
+    "difficulty": "Medium",
+    "source_type": "Behavioral",
+    "ideal_answer": "Describe a specific change (e.g., new technology, process, team structure), your initial reaction, steps taken to adapt, skills learned, and positive outcome.",
+    "keywords": ["adaptability", "change management", "learning", "resilience", "flexibility"],
+    "improved_question": "Describe a situation where your team underwent a major organizational change. How did you adapt your approach to ensure continued productivity and team cohesion?"
+  },
+  {
+    "question": "Describe a time when you had a conflict with a colleague. How did you resolve it?",
+    "category": "Conflict Resolution & Interpersonal Skills",
+    "role": "Team Collaboration",
+    "experience": "Entry to Mid-level",
+    "difficulty": "Medium",
+    "source_type": "Behavioral",
+    "ideal_answer": "Explain the conflict, your approach to understanding the other person's perspective, communication strategies used, and the resolution achieved.",
+    "keywords": ["conflict resolution", "communication", "empathy", "collaboration", "problem-solving"],
+    "improved_question": "Tell me about a time when you had a fundamental disagreement with a team member on a project approach. How did you navigate the conflict while maintaining a productive working relationship?"
+  },
+  {
+    "question": "Give me an example of a time when you took the lead on a project without formal authority. What was the outcome?",
+    "category": "Leadership & Initiative",
+    "role": "Leadership Potential",
+    "experience": "All levels",
+    "difficulty": "High",
+    "source_type": "Behavioral",
+    "ideal_answer": "Describe the situation, why you stepped up, how you motivated others, challenges faced, and the results achieved.",
+    "keywords": ["leadership", "initiative", "influence", "motivation", "results"],
+    "improved_question": "Describe a situation where you identified a critical gap in a project and took ownership to drive it forward, even though it wasn't formally your responsibility."
+  },
+  {
+    "question": "Tell me about a complex problem you solved. What was your approach?",
+    "category": "Problem Solving & Critical Thinking",
+    "role": "Analytical Thinking",
+    "experience": "All levels",
+    "difficulty": "Medium",
+    "source_type": "Behavioral",
+    "ideal_answer": "Explain the problem, how you analyzed it, alternatives considered, solution implemented, and measurable results.",
+    "keywords": ["problem solving", "critical thinking", "analysis", "solution", "results"],
+    "improved_question": "Describe a situation where you had to solve a complex problem with limited information and tight deadlines. Walk me through your analytical process and the solution you implemented."
+  },
+  {
+    "question": "Describe a time when you worked on a team project that failed to meet its objectives. What did you learn?",
+    "category": "Teamwork & Collaboration",
+    "role": "Team Player",
+    "experience": "All levels",
+    "difficulty": "Medium",
+    "source_type": "Behavioral",
+    "ideal_answer": "Explain the project, team dynamics, what went wrong, your role, lessons learned, and how you'd approach it differently.",
+    "keywords": ["teamwork", "collaboration", "learning", "accountability", "improvement"],
+    "improved_question": "Tell me about a team project that didn't achieve its goals. What was your role in both the challenges and the lessons learned, and how did this experience improve your approach to teamwork?"
+  },
+  {
+    "question": "Give me an example of a time when you had to persuade others to adopt your idea or approach.",
+    "category": "Communication & Persuasion",
+    "role": "Influence & Communication",
+    "experience": "Mid-level",
+    "difficulty": "Medium",
+    "source_type": "Behavioral",
+    "ideal_answer": "Describe the situation, your idea, audience, persuasion strategy, resistance encountered, and final outcome.",
+    "keywords": ["communication", "persuasion", "influence", "presentation", "results"],
+    "improved_question": "Describe a situation where you needed to convince stakeholders to support a new initiative. How did you tailor your communication approach to different audiences and overcome resistance?"
+  },
+  {
+    "question": "Tell me about a time when you had to manage multiple competing priorities. How did you handle it?",
+    "category": "Time Management & Prioritization",
+    "role": "Organization",
+    "experience": "All levels",
+    "difficulty": "Medium",
+    "source_type": "Behavioral",
+    "ideal_answer": "Explain the competing demands, prioritization method used, time management strategies, and successful completion of key tasks.",
+    "keywords": ["time management", "prioritization", "organization", "multitasking", "results"],
+    "improved_question": "Describe a period when you were managing multiple high-priority projects with overlapping deadlines. How did you prioritize your efforts and ensure all critical deliverables were met?"
+  },
+  {
+    "question": "Describe a situation where you failed at something important. How did you respond?",
+    "category": "Resilience & Handling Failure",
+    "role": "Growth Mindset",
+    "experience": "All levels",
+    "difficulty": "High",
+    "source_type": "Behavioral",
+    "ideal_answer": "Explain what happened, your emotional response, lessons learned, actions taken to improve, and how it made you stronger.",
+    "keywords": ["resilience", "failure", "learning", "growth", "improvement"],
+    "improved_question": "Tell me about a significant professional setback you experienced. How did you process the failure, what specific steps did you take to recover, and how did this experience shape your future approach?"
+  },
+  {
+    "question": "Give me an example of a goal you set and achieved. What steps did you take?",
+    "category": "Goal Setting & Achievement",
+    "role": "Achievement Orientation",
+    "experience": "All levels",
+    "difficulty": "Medium",
+    "source_type": "Behavioral",
+    "ideal_answer": "Describe the goal, why it was important, planning process, actions taken, obstacles overcome, and successful achievement.",
+    "keywords": ["goal setting", "achievement", "planning", "execution", "results"],
+    "improved_question": "Describe a challenging professional goal you set for yourself. Walk me through your planning process, the obstacles you encountered, and the specific actions that led to your success."
+  },
+  {
+    "question": "Tell me about a time when you went above and beyond for a customer or client.",
+    "category": "Customer Focus & Service",
+    "role": "Customer Service",
+    "experience": "All levels",
+    "difficulty": "Medium",
+    "source_type": "Behavioral",
+    "ideal_answer": "Explain the customer's need, why it was challenging, extra effort you provided, and the positive impact on the customer relationship.",
+    "keywords": ["customer service", "empathy", "problem solving", "going the extra mile", "satisfaction"],
+    "improved_question": "Describe a situation where a customer was facing a critical issue that wasn't directly your responsibility. How did you take ownership and what was the outcome for the customer relationship?"
+  }
+]
