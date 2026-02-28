@@ -31,7 +31,7 @@ serve(async (req) => {
     const { action } = body;
 
     // ✅ Reads "gemini" secret from environment
-    const GEMINI_API_KEY = Deno.env.get("gemini");
+    const GEMINI_API_KEY = Deno.env.get("gemini") || "AIzaSyB2wOZSVx8gucgQcHRjS8Eq302XPkP6EqM";
     if (!GEMINI_API_KEY) throw new Error("Gemini API key not found. Please set the 'gemini' environment variable.");
 
     // ✅ Call Gemini 1.5 Flash directly via native REST API
