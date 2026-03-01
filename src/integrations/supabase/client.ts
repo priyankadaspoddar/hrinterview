@@ -2,13 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Hardcoded Supabase connection for development
+const SUPABASE_URL = "db.givkbfzhoyzywfbaipts.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZGlyZWN0VXJsIjoiaHR0cHM6Ly9kYi5naXZrYmZ6aG95enl3ZmJhaXB0cy5jb206NDUzMi8iLCJpYXQiOjE2OTI1MTM2MDAsImV4cCI6MTk4MTEzNjYwMH0.1wHuMa_cKkOKQA3-ifK7uIMQZM1tyrabBrY7vWob8iU";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(`postgresql://postgres:[YOUR-PASSWORD]@${SUPABASE_URL}:5432/postgres`, SUPABASE_ANON_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
