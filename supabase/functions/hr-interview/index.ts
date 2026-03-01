@@ -31,13 +31,13 @@ serve(async (req) => {
     const { action } = body;
 
     // ✅ Reads "gemini" secret from environment
-    const GEMINI_API_KEY = Deno.env.get("gemini") || "AIzaSyB2wOZSVx8gucgQcHRjS8Eq302XPkP6EqM";
+    const GEMINI_API_KEY = Deno.env.get("gemini");
     if (!GEMINI_API_KEY) throw new Error("Gemini API key not found. Please set the 'gemini' environment variable.");
 
     // ✅ Call Gemini 1.5 Flash directly via native REST API
     const callAI = async (prompt: string) => {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -141,7 +141,7 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
       if (!frameBase64) throw new Error("No frame provided");
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
