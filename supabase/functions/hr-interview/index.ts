@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://raw.githubusercontent.com/supabase/supabase-js/master/src/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,11 @@ const QUESTION_CATEGORIES = [
   "Innovation & Creativity",
   "Ethics & Integrity",
 ];
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") || "http://localhost:54320",
+  Deno.env.get("SUPABASE_ANON_KEY") || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZGlyZWN0VXJsIjoiaHR0cDovL2xvY2FsaG9zdDo1NDMyMSJ9.1wHuMa_cKkOKQA3-ifK7uIMQZM1tyrabBrY7vWob8iU"
+);
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -62,6 +68,26 @@ serve(async (req) => {
       return text;
     };
 
+    // ─── Initialize interview session ───
+    if (action === "start_interview") {
+      const { userId } = body;
+      const { data, error } = await supabase
+        .from("interview_sessions")
+        .insert({
+          user_id: userId,
+          total_questions: 5,
+          questions_answered: 0,
+        })
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ sessionId: data.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── Generate 5 diverse questions ───
     if (action === "get_questions") {
       const shuffled = [...QUESTION_CATEGORIES].sort(() => Math.random() - 0.5);
@@ -103,7 +129,7 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
 
     // ─── Evaluate answer with STAR analysis ───
     if (action === "evaluate") {
-      const { answer, question, questionNumber } = body;
+      const { answer, question, questionNumber, sessionId } = body;
 
       const prompt = `You are an expert HR interview coach. Evaluate the candidate's answer using the STAR method.
 
@@ -130,7 +156,101 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
       if (!jsonMatch) throw new Error("Failed to parse AI response");
       const evaluation = JSON.parse(jsonMatch[0]);
 
+      // Store the answer in database
+      await supabase
+        .from("session_answers")
+        .insert({
+          session_id: sessionId,
+          question: question,
+          category: QUESTION_CATEGORIES[(questionNumber - 1) % QUESTION_CATEGORIES.length],
+          score: evaluation.overallScore,
+          star_scores: evaluation.starBreakdown,
+          strengths: evaluation.strengths,
+          improvements: evaluation.improvements,
+          skipped: false,
+        });
+
+      // Update session progress
+      await supabase
+        .from("interview_sessions")
+        .update({
+          questions_answered: questionNumber,
+          avg_score: evaluation.overallScore, // Temporary, will be updated later
+        })
+        .eq("id", sessionId);
+
       return new Response(JSON.stringify({ evaluation }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Skip question ───
+    if (action === "skip_question") {
+      const { question, questionNumber, sessionId } = body;
+
+      // Store the skipped answer
+      await supabase
+        .from("session_answers")
+        .insert({
+          session_id: sessionId,
+          question: question,
+          category: QUESTION_CATEGORIES[(questionNumber - 1) % QUESTION_CATEGORIES.length],
+          score: null,
+          star_scores: null,
+          strengths: null,
+          improvements: null,
+          skipped: true,
+        });
+
+      // Update session progress
+      await supabase
+        .from("interview_sessions")
+        .update({
+          questions_answered: questionNumber,
+        })
+        .eq("id", sessionId);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Get session progress ───
+    if (action === "get_progress") {
+      const { sessionId } = body;
+
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("interview_sessions")
+        .select("*")
+        .eq("id", sessionId)
+        .single();
+
+      if (sessionError) throw sessionError;
+
+      const { data: answersData, error: answersError } = await supabase
+        .from("session_answers")
+        .select("*")
+        .eq("session_id", sessionId);
+
+      if (answersError) throw answersError;
+
+      // Calculate average score
+      const totalScore = answersData.reduce((sum, answer) => sum + (answer.score || 0), 0);
+      const answeredCount = answersData.filter(answer => answer.score !== null).length;
+      const avgScore = answeredCount > 0 ? totalScore / answeredCount : 0;
+
+      // Update session with actual average score
+      await supabase
+        .from("interview_sessions")
+        .update({ avg_score: avgScore })
+        .eq("id", sessionId);
+
+      return new Response(JSON.stringify({
+        progress: sessionData.questions_answered,
+        totalQuestions: sessionData.total_questions,
+        avgScore: avgScore,
+        answers: answersData,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -188,11 +308,24 @@ Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
 
     // ─── Generate PDF report ───
     if (action === "generate_report") {
-      const { evaluations, questions, categories, overallEmotionAvg } = body;
+      const { sessionId } = body;
 
-      const avgScore =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        evaluations.reduce((s: number, e: any) => s + e.overallScore, 0) / evaluations.length;
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("interview_sessions")
+        .select("*")
+        .eq("id", sessionId)
+        .single();
+
+      if (sessionError) throw sessionError;
+
+      const { data: answersData, error: answersError } = await supabase
+        .from("session_answers")
+        .select("*")
+        .eq("session_id", sessionId);
+
+      if (answersError) throw answersError;
+
+      const avgScore = sessionData.avg_score || 0;
 
       const prompt = `You are an expert HR interview report writer. Generate a comprehensive, professional interview performance report.
 
@@ -200,23 +333,14 @@ Interview Data:
 Average Score: ${avgScore.toFixed(1)}/10
 
 Questions & Scores:
-${evaluations
-  .map(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (e: any, i: number) =>
-      `Q${i + 1} [${categories?.[i] || "General"}]: "${questions[i]}" → Score: ${e.overallScore}/10
-  S:${e.starBreakdown.situation.score} T:${e.starBreakdown.task.score} A:${e.starBreakdown.action.score} R:${e.starBreakdown.result.score}
-  Strengths: ${e.strengths.join(", ")}
-  Improvements: ${e.improvements.join(", ")}`
+${answersData
+  .map((answer: any, i: number) =>
+    `Q${i + 1} [${answer.category || "General"}]: "${answer.question}" → Score: ${answer.score || "N/A"}
+  S:${answer.star_scores?.situation?.score || "N/A"} T:${answer.star_scores?.task?.score || "N/A"} A:${answer.star_scores?.action?.score || "N/A"} R:${answer.star_scores?.result?.score || "N/A"}
+  Strengths: ${answer.strengths?.join(", ") || "N/A"}
+  Improvements: ${answer.improvements?.join(", ") || "N/A"}`
   )
   .join("\n\n")}
-
-Emotion Tracking Summary:
-${
-  overallEmotionAvg
-    ? `Eye Contact: ${overallEmotionAvg.eyeContact}%, Confidence: ${overallEmotionAvg.confidence}%, Engagement: ${overallEmotionAvg.engagement}%, Stress: ${overallEmotionAvg.stress}%, Positivity: ${overallEmotionAvg.positivity}%`
-    : "No emotion data available"
-}
 
 Return ONLY a valid JSON object with no extra text, no markdown, no backticks:
 {

@@ -39,27 +39,43 @@ const Index = () => {
   const [currentEval, setCurrentEval] = useState<Evaluation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [avgScore, setAvgScore] = useState(0);
   const cameraRef = useRef<LiveCameraHandle>(null);
   const { toast } = useToast();
 
-  const isInterviewActive = phase === "question" || phase === "feedback";
+const isInterviewActive = phase === "question" || phase === "feedback";
 
-  const videoRef = cameraRef.current?.videoRef || { current: null };
+const videoRef = cameraRef.current?.videoRef || { current: null };
   const cameraActive = cameraRef.current?.isActive || false;
   const { metrics, timeline, resetTimeline } = useEmotionTracking(
     videoRef, isInterviewActive && cameraActive, isListening
   );
 
-  const startInterview = async () => {
+const startInterview = async () => {
     setPhase("loading");
     try {
-      const { data, error } = await supabase.functions.invoke("hr-interview", {
-        body: { action: "get_questions" },
-      });
+      const { data, error } = await supabase.auth.getUser();
       if (error) throw error;
 
-      setQuestions(data.questions);
-      setCategories(data.categories || []);
+      const { data: sessionData, error: sessionError } = await supabase.functions.invoke("hr-interview", {
+        body: { action: "start_interview", userId: data.user.id },
+      });
+      if (sessionError) throw sessionError;
+
+      setSessionId(sessionData.sessionId);
+      setProgress(0);
+      setTotalQuestions(5);
+
+      const { data: questionsData, error: questionsError } = await supabase.functions.invoke("hr-interview", {
+        body: { action: "get_questions" },
+      });
+      if (questionsError) throw questionsError;
+
+      setQuestions(questionsData.questions);
+      setCategories(questionsData.categories || []);
       setCurrentQ(0);
       setEvaluations([]);
       setSkippedIndices(new Set());
@@ -67,20 +83,32 @@ const Index = () => {
       resetTimeline();
       setPhase("question");
     } catch (error: unknown) {
-      toast({ title: "Error", description: (error as Error)?.message || "Failed to load questions.", variant: "destructive" });
+      toast({ title: "Error", description: (error as Error)?.message || "Failed to start interview.", variant: "destructive" });
       setPhase("landing");
     }
   };
 
-  const submitAnswer = async (answer: string) => {
+const submitAnswer = async (answer: string) => {
+    if (!sessionId) return;
+
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("hr-interview", {
-        body: { action: "evaluate", answer, question: questions[currentQ], questionNumber: currentQ + 1 },
+        body: { action: "evaluate", answer, question: questions[currentQ], questionNumber: currentQ + 1, sessionId },
       });
       if (error) throw error;
       setCurrentEval(data.evaluation);
-      setPhase("feedback");
+
+      // Update progress
+      const newProgress = currentQ + 1;
+      setProgress(newProgress);
+      if (newProgress >= totalQuestions) {
+        setPhase("results");
+      } else {
+        setCurrentQ(newProgress);
+        setCurrentEval(null);
+        setPhase("question");
+      }
     } catch (error: unknown) {
       toast({ title: "Error", description: (error as Error)?.message || "Failed to evaluate.", variant: "destructive" });
     } finally {
@@ -88,29 +116,44 @@ const Index = () => {
     }
   };
 
-  const skipQuestion = () => {
+const skipQuestion = async () => {
+    if (!sessionId) return;
+
     setSkippedIndices(prev => new Set(prev).add(currentQ));
-    if (currentQ + 1 >= questions.length) {
-      setPhase("results");
-    } else {
-      setCurrentQ(prev => prev + 1);
-      setCurrentEval(null);
-      setPhase("question");
+    try {
+      await supabase.functions.invoke("hr-interview", {
+        body: { action: "skip_question", question: questions[currentQ], questionNumber: currentQ + 1, sessionId },
+      });
+
+      const newProgress = currentQ + 1;
+      setProgress(newProgress);
+      if (newProgress >= totalQuestions) {
+        setPhase("results");
+      } else {
+        setCurrentQ(newProgress);
+        setCurrentEval(null);
+        setPhase("question");
+      }
+    } catch (error: unknown) {
+      toast({ title: "Error", description: (error as Error)?.message || "Failed to skip question.", variant: "destructive" });
     }
   };
 
-  const nextQuestion = () => {
+const nextQuestion = () => {
     if (currentEval) setEvaluations((prev) => [...prev, currentEval]);
-    if (currentQ + 1 >= questions.length) {
+
+    const newProgress = currentQ + 1;
+    setProgress(newProgress);
+    if (newProgress >= totalQuestions) {
       setPhase("results");
     } else {
-      setCurrentQ((prev) => prev + 1);
+      setCurrentQ(newProgress);
       setCurrentEval(null);
       setPhase("question");
     }
   };
 
-  const allEvaluations = currentEval ? [...evaluations, currentEval] : evaluations;
+const allEvaluations = currentEval ? [...evaluations, currentEval] : evaluations;
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
